@@ -2,7 +2,7 @@ package trace
 
 import (
 	"go.opentelemetry.io/otel/attribute"
-	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.16.0"
 )
 
 const (

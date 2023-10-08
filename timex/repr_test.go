@@ -8,8 +8,8 @@ import (
 )
 
 func TestReprOfDuration(t *testing.T) {
-	assert.Equal(t, "1000.0ms", ReprOfDuration(time.Second))
-	assert.Equal(t, "1111.6ms", ReprOfDuration(
+	assert.Equal(t, "1000.000ms", ReprOfDuration(time.Second))
+	assert.Equal(t, "1111.555ms", ReprOfDuration(
 		time.Second+time.Millisecond*111+time.Microsecond*555))
 }
 
