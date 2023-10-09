@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	semconv "go.opentelemetry.io/otel/semconv/v1.16.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 )
 
 func TestMain(t *testing.M) {
