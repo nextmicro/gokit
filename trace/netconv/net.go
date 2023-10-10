@@ -21,7 +21,7 @@ import (
 
 	"github.com/nextmicro/gokit/trace/semconvutil/v4"
 	"go.opentelemetry.io/otel/attribute"
-	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 )
 
 var nc = &v4.NetConv{
