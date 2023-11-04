@@ -24,9 +24,8 @@ type Tracing struct {
 
 func New(opts ...Option) (*Tracing, error) {
 	op := &Config{
-		Endpoint: "http://127.0.0.1:14268/api/traces",
-		Sampler:  1.0,
-		Batcher:  kindJaeger,
+		Sampler: 1.0,
+		Batcher: kindStdout,
 	}
 	for _, opt := range opts {
 		opt.apply(op)
@@ -106,6 +105,8 @@ func (t *Tracing) createExporter() (sdk.SpanExporter, error) {
 			opts = append(opts, otlptracehttp.WithURLPath(t.op.OtlpHttpPath))
 		}
 		return otlptracehttp.New(context.Background(), opts...)
+	case kindStdout:
+		return stdouttrace.New()
 	case kindFile:
 		f, err := os.OpenFile(t.op.Endpoint, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
 		if err != nil {
