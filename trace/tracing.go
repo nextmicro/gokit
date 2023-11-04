@@ -25,7 +25,7 @@ type Tracing struct {
 func New(opts ...Option) (*Tracing, error) {
 	op := &Config{
 		Sampler: 1.0,
-		Batcher: kindStdout,
+		Batcher: KindStdout,
 	}
 	for _, opt := range opts {
 		opt.apply(op)
@@ -76,9 +76,9 @@ func New(opts ...Option) (*Tracing, error) {
 func (t *Tracing) createExporter() (sdk.SpanExporter, error) {
 	// Just support jaeger and zipkin now, more for later
 	switch t.op.Batcher {
-	case kindZipkin:
+	case KindZipkin:
 		return zipkin.New(t.op.Endpoint)
-	case kindOtlpGrpc:
+	case KindOtlpGrpc:
 		// Always treat trace exporter as optional component, so we use nonblock here,
 		// otherwise this would slow down app start up even set a dial timeout here when
 		// endpoint can not reach.
@@ -92,7 +92,7 @@ func (t *Tracing) createExporter() (sdk.SpanExporter, error) {
 			opts = append(opts, otlptracegrpc.WithHeaders(t.op.OtlpHeaders))
 		}
 		return otlptracegrpc.New(context.Background(), opts...)
-	case kindOtlpHttp:
+	case KindOtlpHttp:
 		// Not support flexible configuration now.
 		opts := []otlptracehttp.Option{
 			otlptracehttp.WithInsecure(),
@@ -105,9 +105,9 @@ func (t *Tracing) createExporter() (sdk.SpanExporter, error) {
 			opts = append(opts, otlptracehttp.WithURLPath(t.op.OtlpHttpPath))
 		}
 		return otlptracehttp.New(context.Background(), opts...)
-	case kindStdout:
+	case KindStdout:
 		return stdouttrace.New()
-	case kindFile:
+	case KindFile:
 		f, err := os.OpenFile(t.op.Endpoint, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
 		if err != nil {
 			return nil, fmt.Errorf("file exporter endpoint error: %s", err.Error())

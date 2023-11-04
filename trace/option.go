@@ -6,11 +6,11 @@ import (
 )
 
 const (
-	kindFile     = "file"
-	kindStdout   = "stdout"
-	kindZipkin   = "zipkin"
-	kindOtlpGrpc = "otlpgrpc"
-	kindOtlpHttp = "otlphttp"
+	KindFile     = "file"
+	KindStdout   = "stdout"
+	KindZipkin   = "zipkin"
+	KindOtlpGrpc = "otlpgrpc"
+	KindOtlpHttp = "otlphttp"
 
 	// TraceName represents the tracing name.
 	TraceName = "opentelemetry"
