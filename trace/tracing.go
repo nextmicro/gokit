@@ -4,9 +4,14 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/url"
+	"os"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/jaeger"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/exporters/zipkin"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -23,7 +28,7 @@ func New(opts ...Option) (*Tracing, error) {
 	op := &Config{
 		Endpoint: "http://127.0.0.1:14268/api/traces",
 		Sampler:  1.0,
-		Batcher:  "jaeger",
+		Batcher:  kindJaeger,
 	}
 	for _, opt := range opts {
 		opt.apply(op)
@@ -75,11 +80,48 @@ func (t *Tracing) createExporter() (sdk.SpanExporter, error) {
 	// Just support jaeger and zipkin now, more for later
 	switch t.op.Batcher {
 	case kindJaeger:
+		u, err := url.Parse(t.op.Endpoint)
+		if err == nil && u.Scheme == protocolUdp {
+			return jaeger.New(jaeger.WithAgentEndpoint(jaeger.WithAgentHost(u.Hostname()), jaeger.WithAgentPort(u.Port())))
+		}
 		return jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(t.op.Endpoint)))
 	case kindZipkin:
 		return zipkin.New(t.op.Endpoint)
+	case kindOtlpGrpc:
+		// Always treat trace exporter as optional component, so we use nonblock here,
+		// otherwise this would slow down app start up even set a dial timeout here when
+		// endpoint can not reach.
+		// If the connection not dial success, the global otel ErrorHandler will catch error
+		// when reporting data like other exporters.
+		opts := []otlptracegrpc.Option{
+			otlptracegrpc.WithInsecure(),
+			otlptracegrpc.WithEndpoint(t.op.Endpoint),
+		}
+		if len(t.op.OtlpHeaders) > 0 {
+			opts = append(opts, otlptracegrpc.WithHeaders(t.op.OtlpHeaders))
+		}
+		return otlptracegrpc.New(context.Background(), opts...)
+	case kindOtlpHttp:
+		// Not support flexible configuration now.
+		opts := []otlptracehttp.Option{
+			otlptracehttp.WithInsecure(),
+			otlptracehttp.WithEndpoint(t.op.Endpoint),
+		}
+		if len(t.op.OtlpHeaders) > 0 {
+			opts = append(opts, otlptracehttp.WithHeaders(t.op.OtlpHeaders))
+		}
+		if len(t.op.OtlpHttpPath) > 0 {
+			opts = append(opts, otlptracehttp.WithURLPath(t.op.OtlpHttpPath))
+		}
+		return otlptracehttp.New(context.Background(), opts...)
+	case kindFile:
+		f, err := os.OpenFile(t.op.Endpoint, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+		if err != nil {
+			return nil, fmt.Errorf("file exporter endpoint error: %s", err.Error())
+		}
+		return stdouttrace.New(stdouttrace.WithWriter(f))
 	default:
-		return nil, fmt.Errorf("trace: unknown exporter: %s", t.op.Batcher)
+		return nil, fmt.Errorf("unknown exporter: %s", t.op.Batcher)
 	}
 }
 
