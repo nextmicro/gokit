@@ -4,11 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/url"
 	"os"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
@@ -79,12 +77,6 @@ func New(opts ...Option) (*Tracing, error) {
 func (t *Tracing) createExporter() (sdk.SpanExporter, error) {
 	// Just support jaeger and zipkin now, more for later
 	switch t.op.Batcher {
-	case kindJaeger:
-		u, err := url.Parse(t.op.Endpoint)
-		if err == nil && u.Scheme == protocolUdp {
-			return jaeger.New(jaeger.WithAgentEndpoint(jaeger.WithAgentHost(u.Hostname()), jaeger.WithAgentPort(u.Port())))
-		}
-		return jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(t.op.Endpoint)))
 	case kindZipkin:
 		return zipkin.New(t.op.Endpoint)
 	case kindOtlpGrpc:
