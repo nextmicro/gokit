@@ -19,10 +19,12 @@ package httpconv // import "go.opentelemetry.io/otel/semconv/v1.20.0/httpconv"
 import (
 	"net/http"
 
+	"github.com/nextmicro/gokit/trace/semconvutil"
 	"github.com/nextmicro/gokit/trace/semconvutil/v4"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var (
@@ -151,4 +153,180 @@ func RequestHeader(h http.Header) []attribute.KeyValue {
 // instrumentation should filter that out of what is passed.
 func ResponseHeader(h http.Header) []attribute.KeyValue {
 	return hc.ResponseHeader(h)
+}
+
+const (
+	// The IP address of the original client behind all proxies, if known (e.g. from
+	// [X-Forwarded-For](https://developer.mozilla.org/en-
+	// US/docs/Web/HTTP/Headers/X-Forwarded-For)).
+	//
+	// Type: string
+	// Required: No
+	// Stability: stable
+	// Examples: '83.164.160.102'
+	// Note: This is not necessarily the same as `net.peer.ip`, which would
+	// identify the network-level peer, which may be a proxy.
+
+	// This attribute should be set when a source of information different
+	// from the one used for `net.peer.ip`, is available even if that other
+	// source just confirms the same value as `net.peer.ip`.
+	// Rationale: For `net.peer.ip`, one typically does not know if it
+	// comes from a proxy, reverse proxy, or the actual client. Setting
+	// `http.client_ip` when it's the same as `net.peer.ip` means that
+	// one is at least somewhat confident that the address is not that of
+	// the closest proxy.
+	HTTPClientIPKey = attribute.Key("http.client_ip")
+	// Kind of HTTP protocol used.
+	//
+	// Type: Enum
+	// Required: No
+	// Stability: stable
+	// Note: If `net.transport` is not specified, it can be assumed to be `IP.TCP`
+	// except if `http.flavor` is `QUIC`, in which case `IP.UDP` is assumed.
+	HTTPFlavorKey = attribute.Key("http.flavor")
+	// The value of the [HTTP host
+	// header](https://tools.ietf.org/html/rfc7230#section-5.4). An empty Host header
+	// should also be reported, see note.
+	//
+	// Type: string
+	// Required: No
+	// Stability: stable
+	// Examples: 'www.example.org'
+	// Note: When the header is present but empty the attribute SHOULD be set to the
+	// empty string. Note that this is a valid situation that is expected in certain
+	// cases, according the aforementioned [section of RFC
+	// 7230](https://tools.ietf.org/html/rfc7230#section-5.4). When the header is not
+	// set the attribute MUST NOT be set.
+	HTTPHostKey = attribute.Key("http.host")
+	// The primary server name of the matched virtual host. This should be obtained
+	// via configuration. If no such configuration can be obtained, this attribute
+	// MUST NOT be set ( `net.host.name` should be used instead).
+	//
+	// Type: string
+	// Required: No
+	// Stability: stable
+	// Examples: 'example.com'
+	// Note: `http.url` is usually not readily available on the server side but would
+	// have to be assembled in a cumbersome and sometimes lossy process from other
+	// information (see e.g. open-telemetry/opentelemetry-python/pull/148). It is thus
+	// preferred to supply the raw data that is available.
+	HTTPServerNameKey = attribute.Key("http.server_name")
+	// Value of the [HTTP User-
+	// Agent](https://tools.ietf.org/html/rfc7231#section-5.5.3) header sent by the
+	// client.
+	//
+	// Type: string
+	// Required: No
+	// Stability: stable
+	// Examples: 'CERN-LineMode/2.15 libwww/2.17b3'
+	HTTPUserAgentKey = attribute.Key("http.user_agent")
+	// Like `net.peer.ip` but for the host IP. Useful in case of a multi-IP host.
+	//
+	// Type: string
+	// Required: No
+	// Stability: stable
+	// Examples: '192.168.0.1'
+	NetHostIPKey = attribute.Key("net.host.ip")
+	// Remote address of the peer (dotted decimal for IPv4 or
+	// [RFC5952](https://tools.ietf.org/html/rfc5952) for IPv6)
+	//
+	// Type: string
+	// Required: No
+	// Stability: stable
+	// Examples: '127.0.0.1'
+	NetPeerIPKey = attribute.Key("net.peer.ip")
+)
+
+// HTTP scheme attributes.
+var (
+	HTTPSchemeHTTP  = semconv.HTTPSchemeKey.String("http")
+	HTTPSchemeHTTPS = semconv.HTTPSchemeKey.String("https")
+	// Another IP-based protocol
+	NetTransportIP = semconv.NetTransportKey.String("ip")
+	// Unix Domain socket. See below
+	NetTransportUnix = semconv.NetTransportKey.String("unix")
+)
+
+var sc = &semconvutil.SemanticConventions{
+	EnduserIDKey:                semconv.EnduserIDKey,
+	HTTPClientIPKey:             HTTPClientIPKey,
+	HTTPFlavorKey:               HTTPFlavorKey,
+	HTTPHostKey:                 HTTPHostKey,
+	HTTPMethodKey:               semconv.HTTPMethodKey,
+	HTTPRequestContentLengthKey: semconv.HTTPRequestContentLengthKey,
+	HTTPRouteKey:                semconv.HTTPRouteKey,
+	HTTPSchemeHTTP:              HTTPSchemeHTTP,
+	HTTPSchemeHTTPS:             HTTPSchemeHTTPS,
+	HTTPServerNameKey:           HTTPServerNameKey,
+	HTTPStatusCodeKey:           semconv.HTTPStatusCodeKey,
+	HTTPTargetKey:               semconv.HTTPTargetKey,
+	HTTPURLKey:                  semconv.HTTPURLKey,
+	HTTPUserAgentKey:            HTTPUserAgentKey,
+	NetHostIPKey:                NetHostIPKey,
+	NetHostNameKey:              semconv.NetHostNameKey,
+	NetHostPortKey:              semconv.NetHostPortKey,
+	NetPeerIPKey:                NetPeerIPKey,
+	NetPeerNameKey:              semconv.NetPeerNameKey,
+	NetPeerPortKey:              semconv.NetPeerPortKey,
+	NetTransportIP:              NetTransportIP,
+	NetTransportOther:           semconv.NetTransportOther,
+	NetTransportTCP:             semconv.NetTransportTCP,
+	NetTransportUDP:             semconv.NetTransportUDP,
+	NetTransportUnix:            NetTransportUnix,
+}
+
+// NetAttributesFromHTTPRequest generates attributes of the net
+// namespace as specified by the OpenTelemetry specification for a
+// span.  The network parameter is a string that net.Dial function
+// from standard library can understand.
+func NetAttributesFromHTTPRequest(network string, request *http.Request) []attribute.KeyValue {
+	return sc.NetAttributesFromHTTPRequest(network, request)
+}
+
+// EndUserAttributesFromHTTPRequest generates attributes of the
+// enduser namespace as specified by the OpenTelemetry specification
+// for a span.
+func EndUserAttributesFromHTTPRequest(request *http.Request) []attribute.KeyValue {
+	return sc.EndUserAttributesFromHTTPRequest(request)
+}
+
+// HTTPClientAttributesFromHTTPRequest generates attributes of the
+// http namespace as specified by the OpenTelemetry specification for
+// a span on the client side.
+func HTTPClientAttributesFromHTTPRequest(request *http.Request) []attribute.KeyValue {
+	return sc.HTTPClientAttributesFromHTTPRequest(request)
+}
+
+// HTTPServerMetricAttributesFromHTTPRequest generates low-cardinality attributes
+// to be used with server-side HTTP metrics.
+func HTTPServerMetricAttributesFromHTTPRequest(serverName string, request *http.Request) []attribute.KeyValue {
+	return sc.HTTPServerMetricAttributesFromHTTPRequest(serverName, request)
+}
+
+// HTTPServerAttributesFromHTTPRequest generates attributes of the
+// http namespace as specified by the OpenTelemetry specification for
+// a span on the server side. Currently, only basic authentication is
+// supported.
+func HTTPServerAttributesFromHTTPRequest(serverName, route string, request *http.Request) []attribute.KeyValue {
+	return sc.HTTPServerAttributesFromHTTPRequest(serverName, route, request)
+}
+
+// HTTPAttributesFromHTTPStatusCode generates attributes of the http
+// namespace as specified by the OpenTelemetry specification for a
+// span.
+func HTTPAttributesFromHTTPStatusCode(code int) []attribute.KeyValue {
+	return sc.HTTPAttributesFromHTTPStatusCode(code)
+}
+
+// SpanStatusFromHTTPStatusCode generates a status code and a message
+// as specified by the OpenTelemetry specification for a span.
+func SpanStatusFromHTTPStatusCode(code int) (codes.Code, string) {
+	return semconvutil.SpanStatusFromHTTPStatusCode(code)
+}
+
+// SpanStatusFromHTTPStatusCodeAndSpanKind generates a status code and a message
+// as specified by the OpenTelemetry specification for a span.
+// Exclude 4xx for SERVER to set the appropriate status.
+func SpanStatusFromHTTPStatusCodeAndSpanKind(code int, spanKind trace.SpanKind) (codes.Code, string) {
+	return semconvutil.SpanStatusFromHTTPStatusCodeAndSpanKind(code, spanKind)
 }
