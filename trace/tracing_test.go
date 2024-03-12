@@ -8,7 +8,7 @@ import (
 )
 
 func TestMain(t *testing.M) {
-	tracing, err := New(WithBatcher(KindStdout), WithAttributes(semconv.ServiceNameKey.String(TraceName)))
+	tracing, err := New(WithBatcher(KindNoop), WithAttributes(semconv.ServiceNameKey.String(TraceName)))
 	if err != nil {
 		panic(err)
 	}

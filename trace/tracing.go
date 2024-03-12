@@ -14,6 +14,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdk "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 )
 
@@ -113,6 +114,8 @@ func (t *Tracing) createExporter() (sdk.SpanExporter, error) {
 			return nil, fmt.Errorf("file exporter endpoint error: %s", err.Error())
 		}
 		return stdouttrace.New(stdouttrace.WithWriter(f))
+	case KindNoop:
+		return tracetest.NewNoopExporter(), nil
 	default:
 		return nil, fmt.Errorf("unknown exporter: %s", t.op.Batcher)
 	}
