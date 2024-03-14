@@ -38,7 +38,6 @@ func New(opts ...Option) (*Tracing, error) {
 		resource.WithSchemaURL(semconv.SchemaURL),
 		resource.WithOS(),
 		resource.WithHost(),
-		resource.WithHostID(),
 		resource.WithFromEnv(), // pull attributes from OTEL_RESOURCE_ATTRIBUTES and OTEL_SERVICE_NAME environment variables
 		resource.WithProcess(), // This option configures a set of Detectors that discover process information
 		resource.WithTelemetrySDK(),
