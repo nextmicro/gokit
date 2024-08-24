@@ -15,7 +15,6 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdk "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
-	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 )
 
 type Tracing struct {
@@ -35,7 +34,6 @@ func New(opts ...Option) (*Tracing, error) {
 	o := &Tracing{op: op}
 
 	r, err := resource.New(context.Background(),
-		resource.WithSchemaURL(semconv.SchemaURL),
 		resource.WithOS(),
 		resource.WithHost(),
 		resource.WithFromEnv(), // pull attributes from OTEL_RESOURCE_ATTRIBUTES and OTEL_SERVICE_NAME environment variables
@@ -56,7 +54,6 @@ func New(opts ...Option) (*Tracing, error) {
 
 	var exp sdk.SpanExporter
 	exp, err = o.createExporter()
-	sdk.NewBatchSpanProcessor(exp)
 	if err != nil {
 		return nil, err
 	}

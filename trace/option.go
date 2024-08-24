@@ -2,7 +2,6 @@ package trace
 
 import (
 	"go.opentelemetry.io/otel/attribute"
-	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 )
 
 const (
@@ -45,7 +44,7 @@ func (fn OptionFunc) apply(cfg *Config) {
 // WithName sets the service name.
 func WithName(name string) Option {
 	return OptionFunc(func(o *Config) {
-		o.Attributes = append(o.Attributes, semconv.ServiceNameKey.String(name))
+		o.Attributes = append(o.Attributes, attribute.Key("service.name").String(name))
 	})
 }
 
