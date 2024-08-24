@@ -56,6 +56,7 @@ func New(opts ...Option) (*Tracing, error) {
 
 	var exp sdk.SpanExporter
 	exp, err = o.createExporter()
+	sdk.NewBatchSpanProcessor(exp)
 	if err != nil {
 		return nil, err
 	}
