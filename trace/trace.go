@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"go.opentelemetry.io/contrib/propagators/b3"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
@@ -32,7 +33,7 @@ func WithPropagator(propagator propagation.TextMapPropagator) TracerOption {
 // NewTracer create tracer instance
 func NewTracer(kind trace.SpanKind, opts ...TracerOption) *Tracer {
 	op := tracerOptions{
-		propagator: propagation.NewCompositeTextMapPropagator(propagation.Baggage{}, propagation.TraceContext{}),
+		propagator: propagation.NewCompositeTextMapPropagator(propagation.Baggage{}, propagation.TraceContext{}, b3.New()),
 	}
 
 	for _, o := range opts {
